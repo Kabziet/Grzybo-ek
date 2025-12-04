@@ -1,7 +1,7 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, REST } = require("discord.js");
 
 // ================== KONFIGURACJA ==================
-const TOKEN = "TU_WKLEJ_SWÓJ_AKTUALNY_TOKEN";
+const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = "TU_WKLEJ_SWOJE_CLIENT_ID";
 const GUILD_ID = "TU_WKLEJ_SWOJE_GUILD_ID";
 
@@ -144,3 +144,4 @@ client.once("ready", () => {
 });
 
 client.login(TOKEN);
+
