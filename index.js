@@ -1,8 +1,12 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, REST } = require("discord.js");
 
-const TOKEN = "MTEwOTA0MzcwMTg2ODY3NTA4Mw.GZZSH5.mbA21NBlBNt3uqrAcn94zUBtMdfA8tLt9ePfEY";
-const CLIENT_ID = "1109043701868675083";
-const GUILD_ID = "812731727285977179";
+// === ZMIENNE ŚRODOWISKOWE ===
+const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+
+if (!DISCORD_TOKEN || !CLIENT_ID || !GUILD_ID) {
+    console.error("Brak DISCORD_TOKEN / CLIENT_ID / GUILD_ID w zmiennych środowiskowych!");
+    process.exit(1);
+}
 
 // ===== DEFINICJA KOMEND =====
 const commands = [
@@ -22,7 +26,7 @@ const commands = [
 ].map(cmd => cmd.toJSON());
 
 // ===== REJESTRACJA KOMEND =====
-const rest = new REST({ version: "10" }).setToken(TOKEN);
+const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
 
 (async () => {
     try {
@@ -30,7 +34,7 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
         await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
         console.log("Komendy zarejestrowane.");
     } catch (error) {
-        console.error(error);
+        console.error("Błąd przy rejestracji komend:", error);
     }
 })();
 
@@ -39,8 +43,8 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
-        GatewayIntentBits.GuildVoiceStates,
-        GatewayIntentBits.GuildMembers
+        GatewayIntentBits.GuildVoiceStates
+        // UWAGA: usunąłem GuildMembers, żeby nie było problemu z privileged intents
     ]
 });
 
@@ -86,37 +90,4 @@ client.on("interactionCreate", async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.commandName;
-    const user = interaction.options.getUser("uzytkownik");
-    const member = interaction.guild.members.cache.get(user.id);
-
-    if (command === "rzucam") {
-        if (!member.voice?.channel) {
-            return interaction.reply({ content: `${member} nie jest w kanale głosowym.`, ephemeral: true });
-        }
-
-        if (activeThrows.has(member.id)) {
-            return interaction.reply({ content: `Już przerzucam ${member}.`, ephemeral: true });
-        }
-
-        startThrowing(member);
-
-        return interaction.reply(`Zaczynam rzucać ${member} po kanałach.`);
-    }
-
-    if (command === "nierzucam") {
-        if (!activeThrows.has(member.id)) {
-            return interaction.reply({ content: `Nie rzucam ${member}.`, ephemeral: true });
-        }
-
-        clearInterval(activeThrows.get(member.id));
-        activeThrows.delete(member.id);
-
-        return interaction.reply(`Przestaję rzucać ${member}.`);
-    }
-});
-
-client.once("ready", () => {
-    console.log(`Zalogowano jako ${client.user.tag}`);
-});
-
-client.login(TOKEN);
+    const member = interaction.options.getMember("uzytkownik"); // zamiast
