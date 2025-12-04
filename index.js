@@ -1,50 +1,56 @@
 const { Client, GatewayIntentBits, SlashCommandBuilder, Routes, REST } = require("discord.js");
 
-// === ZMIENNE ŚRODOWISKOWE ===
-const { DISCORD_TOKEN, CLIENT_ID, GUILD_ID } = process.env;
+// ================== KONFIGURACJA ==================
+const TOKEN = "TU_WKLEJ_SWÓJ_AKTUALNY_TOKEN";
+const CLIENT_ID = "TU_WKLEJ_SWOJE_CLIENT_ID";
+const GUILD_ID = "TU_WKLEJ_SWOJE_GUILD_ID";
 
-if (!DISCORD_TOKEN || !CLIENT_ID || !GUILD_ID) {
-    console.error("Brak DISCORD_TOKEN / CLIENT_ID / GUILD_ID w zmiennych środowiskowych!");
-    process.exit(1);
-}
-
-// ===== DEFINICJA KOMEND =====
+// ================== DEFINICJA KOMEND ==================
 const commands = [
     new SlashCommandBuilder()
         .setName("rzucam")
         .setDescription("Zaczynam przerzucać użytkownika między kanałami głosowymi.")
         .addUserOption(option =>
-            option.setName("uzytkownik").setDescription("Kogo przerzucać").setRequired(true)
+            option
+                .setName("uzytkownik")
+                .setDescription("Kogo przerzucać")
+                .setRequired(true)
         ),
 
     new SlashCommandBuilder()
         .setName("nierzucam")
         .setDescription("Przestaję przerzucać użytkownika.")
         .addUserOption(option =>
-            option.setName("uzytkownik").setDescription("Kogo przestać przerzucać").setRequired(true)
+            option
+                .setName("uzytkownik")
+                .setDescription("Kogo przestać przerzucać")
+                .setRequired(true)
         )
 ].map(cmd => cmd.toJSON());
 
-// ===== REJESTRACJA KOMEND =====
-const rest = new REST({ version: "10" }).setToken(DISCORD_TOKEN);
+// ================== REJESTRACJA KOMEND ==================
+const rest = new REST({ version: "10" }).setToken(TOKEN);
 
 (async () => {
     try {
         console.log("Rejestruję komendy...");
-        await rest.put(Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID), { body: commands });
+        await rest.put(
+            Routes.applicationGuildCommands(CLIENT_ID, GUILD_ID),
+            { body: commands }
+        );
         console.log("Komendy zarejestrowane.");
     } catch (error) {
         console.error("Błąd przy rejestracji komend:", error);
     }
 })();
 
-// ===== LOGIKA BOTA =====
+// ================== LOGIKA BOTA ==================
 
 const client = new Client({
     intents: [
         GatewayIntentBits.Guilds,
         GatewayIntentBits.GuildVoiceStates
-        // UWAGA: usunąłem GuildMembers, żeby nie było problemu z privileged intents
+        // GuildMembers nie jest potrzebne – unikamy privileged intents
     ]
 });
 
@@ -90,4 +96,51 @@ client.on("interactionCreate", async interaction => {
     if (!interaction.isChatInputCommand()) return;
 
     const command = interaction.commandName;
-    const member = interaction.options.getMember("uzytkownik"); // zamiast
+    const member = interaction.options.getMember("uzytkownik"); // pobieramy od razu membera
+
+    if (!member) {
+        return interaction.reply({
+            content: "Nie znalazłem tego użytkownika na serwerze.",
+            ephemeral: true
+        });
+    }
+
+    if (command === "rzucam") {
+        if (!member.voice || !member.voice.channel) {
+            return interaction.reply({
+                content: `${member} nie jest w kanale głosowym.`,
+                ephemeral: true
+            });
+        }
+
+        if (activeThrows.has(member.id)) {
+            return interaction.reply({
+                content: `Już przerzucam ${member}.`,
+                ephemeral: true
+            });
+        }
+
+        await interaction.reply(`Zaczynam rzucać ${member} po kanałach.`);
+        startThrowing(member);
+    }
+
+    if (command === "nierzucam") {
+        if (!activeThrows.has(member.id)) {
+            return interaction.reply({
+                content: `Nie rzucam ${member}.`,
+                ephemeral: true
+            });
+        }
+
+        clearInterval(activeThrows.get(member.id));
+        activeThrows.delete(member.id);
+
+        return interaction.reply(`Przestaję rzucać ${member}.`);
+    }
+});
+
+client.once("ready", () => {
+    console.log(`Zalogowano jako ${client.user.tag}`);
+});
+
+client.login(TOKEN);
